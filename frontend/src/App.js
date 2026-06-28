@@ -1,53 +1,123 @@
-import { useEffect } from "react";
+import React from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+import { AppProvider } from "@/context/AppContext";
+import Landing from "@/pages/Landing";
+import SelectPersona from "@/pages/SelectPersona";
+import AuthCallback from "@/pages/AuthCallback";
+import Home from "@/pages/Home";
+import HeartExplorer from "@/pages/HeartExplorer";
+import BrainExplorer from "@/pages/BrainExplorer";
+import DiseaseLab from "@/pages/DiseaseLab";
+import AskAI from "@/pages/AskAI";
+import Compare from "@/pages/Compare";
+import LearningHub from "@/pages/LearningHub";
+import QuizArena from "@/pages/QuizArena";
+import ARVRLab from "@/pages/ARVRLab";
+import Protected from "@/components/Protected";
+import { Toaster } from "@/components/ui/sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+function AppRouter() {
+  // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+  const location = useLocation();
+  if (location.hash?.includes("session_id=")) {
+    return <AuthCallback />;
+  }
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/select-persona" element={<SelectPersona />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route
+        path="/app"
+        element={
+          <Protected>
+            <Home />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/heart"
+        element={
+          <Protected>
+            <HeartExplorer />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/brain"
+        element={
+          <Protected>
+            <BrainExplorer />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/disease"
+        element={
+          <Protected>
+            <DiseaseLab />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/compare"
+        element={
+          <Protected>
+            <Compare />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/learn"
+        element={
+          <Protected>
+            <LearningHub />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/quiz"
+        element={
+          <Protected>
+            <QuizArena />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/arvr"
+        element={
+          <Protected>
+            <ARVRLab />
+          </Protected>
+        }
+      />
+      <Route
+        path="/app/ask"
+        element={
+          <Protected>
+            <AskAI />
+          </Protected>
+        }
+      />
+    </Routes>
   );
-};
+}
 
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <AppProvider>
+          <AppRouter />
+          <Toaster />
+        </AppProvider>
       </BrowserRouter>
     </div>
   );
