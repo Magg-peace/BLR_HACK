@@ -1,0 +1,136 @@
+{
+  "theme_and_archetype": {
+    "theme": "dark",
+    "archetype": "Premium Medical Holographic",
+    "description": "An 'Apple + Complete Anatomy' aesthetic. It must feel modern, calm, premium, and highly medical. It is dark and futuristic but pleasant to look at for long durations, completely avoiding aggressive cyberpunk aesthetics. Heavily utilizes crystal-clear glassmorphism, subtle glowing effects, ambient particles, and soft depth.",
+    "emotion": "Authoritative, serene, advanced, immersive"
+  },
+  "typography": {
+    "font_strategy": "Non-AI-slop pairing. Avoiding Inter and Space Grotesk.",
+    "primary_font": "Outfit",
+    "primary_font_usage": "Headings, Large Titles, Navigation, Emphasized Metrics",
+    "secondary_font": "Manrope",
+    "secondary_font_usage": "Body text, UI labels, dense data, medical descriptions",
+    "scale": {
+      "h1_hero": "text-5xl sm:text-6xl lg:text-7xl font-light tracking-tight",
+      "h2_section": "text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight",
+      "h3_card": "text-xl sm:text-2xl font-medium",
+      "body_large": "text-lg leading-relaxed text-white/80",
+      "body_base": "text-base leading-relaxed text-white/70",
+      "label_small": "text-sm font-semibold tracking-wider uppercase text-[#00D4FF]"
+    }
+  },
+  "colors": {
+    "background": {
+      "base": "#07111F",
+      "surface": "#0a192f",
+      "elevated": "#112240"
+    },
+    "brand": {
+      "primary": "#7C4DFF",
+      "secondary": "#00D4FF",
+      "accent": "#FF5E7D"
+    },
+    "feedback": {
+      "success": "#4ADE80",
+      "warning": "#F59E0B",
+      "danger": "#EF4444"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "rgba(255, 255, 255, 0.7)",
+      "tertiary": "rgba(255, 255, 255, 0.5)"
+    },
+    "gradients": {
+      "primary_glow": "bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#7C4DFF]/20 via-[#07111F]/0 to-transparent",
+      "text_gradient": "bg-clip-text text-transparent bg-gradient-to-r from-[#00D4FF] to-[#7C4DFF]",
+      "card_border": "bg-gradient-to-br from-white/20 to-white/0"
+    }
+  },
+  "surface_styles": {
+    "glass_panel_heavy": "bg-[#07111F]/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-3xl",
+    "glass_panel_light": "bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg rounded-2xl",
+    "glass_panel_interactive": "bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all duration-300",
+    "solid_surface": "bg-[#112240] rounded-2xl border border-white/5",
+    "floating_nav": "bg-[#07111F]/70 backdrop-blur-xl border-b border-white/10"
+  },
+  "layout_and_spacing": {
+    "container_max": "max-w-7xl mx-auto px-6 sm:px-8 lg:px-12",
+    "section_gap": "py-24 md:py-32",
+    "grid_bento": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "dashboard_layout": "flex h-screen overflow-hidden bg-[#07111F]",
+    "sidebar_width": "w-72 flex-shrink-0",
+    "rounded_corners": "Use full rounding (rounded-full) for pills/buttons, rounded-2xl for standard cards, rounded-3xl for large cinematic hero cards or major layout boundaries."
+  },
+  "motion_and_interaction": {
+    "hover_states": "Subtle upward lift (-translate-y-1), increased border opacity, increased backdrop brightness.",
+    "framer_motion_defaults": {
+      "spring_gentle": {
+        "type": "spring",
+        "stiffness": 100,
+        "damping": 15
+      },
+      "ease_out": {
+        "type": "tween",
+        "ease": "easeOut",
+        "duration": 0.5
+      },
+      "stagger_children": 0.1
+    },
+    "ambient_effects": "Use tsparticles for slow-moving, out-of-focus floating medical dust/cells (opacity 0.2). Use floating animations for 3D elements (y-axis sine wave motion)."
+  },
+  "component_guidelines": {
+    "buttons": {
+      "primary": "bg-[#7C4DFF] hover:bg-[#6538E6] text-white px-8 py-4 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(124,77,255,0.4)] hover:shadow-[0_0_30px_rgba(124,77,255,0.6)]",
+      "secondary": "bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 px-8 py-4 rounded-full font-medium transition-all",
+      "icon_action": "p-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all backdrop-blur-md"
+    },
+    "cards": {
+      "disease_card": "glass_panel_interactive relative overflow-hidden group. Must have an absolute inset glowing gradient that reveals on hover.",
+      "persona_card": "flex flex-col items-center p-8 glass_panel_interactive text-center cursor-pointer min-h-[300px] justify-center gap-4"
+    },
+    "inputs": {
+      "search_bar": "bg-[#0a192f] border border-white/10 rounded-full px-6 py-3 text-white placeholder-white/50 focus:outline-none focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF] transition-all"
+    },
+    "data_viz": {
+      "slider": "h-2 bg-white/10 rounded-full overflow-hidden. Active track: bg-gradient-to-r from-[#4ADE80] to-[#EF4444] (healthy to severe)."
+    },
+    "icons": "lucide-react with strokeWidth={1.5} for a clean, precision-medical look."
+  },
+  "images": {
+    "background_textures": [
+      {
+        "url": "https://images.pexels.com/photos/25626516/pexels-photo-25626516.jpeg",
+        "description": "Abstract colorful molecular structure",
+        "usage": "Hero background overlay (set to very low opacity and blur) or Learning Hub banner"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1738300332814-225c81707b1b",
+        "description": "Abstract molecular spiral",
+        "usage": "Ask AI chat interface background (faint)"
+      }
+    ],
+    "personas": [
+      {
+        "url": "https://images.pexels.com/photos/15960478/pexels-photo-15960478.jpeg",
+        "description": "Confident doctor",
+        "usage": "Doctor persona card, Testimonials"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1706958581603-dffa91fec580",
+        "description": "Medical student with mask and stethoscope",
+        "usage": "Medical Student persona card"
+      }
+    ]
+  },
+  "instructions_for_main_agent": {
+    "setup": "Install framer-motion, @react-three/fiber, @react-three/drei, three, lucide-react, tsparticles, and tailwind-scrollbar.",
+    "fonts": "Import 'Outfit' (weights 300,400,500,600) and 'Manrope' (weights 400,500,600) from Google Fonts.",
+    "routing": "Setup React Router. Routes: '/' (Landing), '/select-persona', '/app' (Dashboard wrapper), '/app/heart', '/app/brain', '/app/disease', '/app/compare', '/app/learn', '/app/ask'.",
+    "three_js_implementation": "For the hero section, use a Canvas with an Environment map. Load a placeholder 3D brain/heart model or use geometric glowing spheres (representing cells) if models aren't available. Ensure transparent background so the tailwind colors show through.",
+    "dashboard_sidebar": "Must use 'glass_panel_heavy' specs. It should float slightly off the left edge (m-4 rounded-3xl) rather than a hard flush dock, to maintain the 'Apple Vision Pro' aesthetic.",
+    "disease_simulator": "Use Framer Motion to animate the severity timeline. As severity increases, transition the 3D model color/texture (or use a placeholder visual representation) and update symptom lists dynamically.",
+    "accessibility": "Ensure all interactive elements have data-testid attributes (e.g., data-testid='explore-heart-btn'). Use semantic HTML tags despite the heavy div-based styling.",
+    "theming_enforcement": "DO NOT USE DEFAULT SHADCN STYLES. You MUST customize Shadcn components in tailwind.config.js to match the glassmorphism and Deep Navy/Purple/Cyan theme defined here. Remove default white/black solid backgrounds from Shadcn cards."
+  }
+}
