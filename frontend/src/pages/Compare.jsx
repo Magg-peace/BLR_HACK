@@ -38,6 +38,7 @@ export default function Compare() {
                 setOrgan("heart");
                 setDiseaseId(HEART_DISEASES[0].id);
               }}
+              data-testid="organ-heart"
               className={`px-4 py-2 rounded-full text-sm font-medium inline-flex items-center gap-2 transition-all ${
                 organ === "heart"
                   ? "bg-[#FF5E7D] text-white shadow-[0_0_15px_rgba(255,94,125,0.4)]"
@@ -51,6 +52,7 @@ export default function Compare() {
                 setOrgan("brain");
                 setDiseaseId(BRAIN_DISEASES[0].id);
               }}
+              data-testid="organ-brain"
               className={`px-4 py-2 rounded-full text-sm font-medium inline-flex items-center gap-2 transition-all ${
                 organ === "brain"
                   ? "bg-[#7C4DFF] text-white shadow-[0_0_15px_rgba(124,77,255,0.4)]"

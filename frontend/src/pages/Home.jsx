@@ -60,7 +60,7 @@ const SECONDARY = [
 
 export default function Home() {
   const { user, persona } = useApp();
-  const firstName = user?.name?.split(" ")[0] || "Explorer";
+  const displayName = user?.name?.trim() || "Explorer";
 
   return (
     <div className="space-y-8" data-testid="dashboard-home">
@@ -71,7 +71,7 @@ export default function Home() {
             Welcome back
           </div>
           <h1 className="font-display font-light text-4xl lg:text-5xl tracking-tight mb-3">
-            Hello, <span className="text-gradient">{firstName}</span>.
+            Hello, <span className="text-gradient">{displayName}</span>
           </h1>
           <p className="text-white/70 max-w-xl text-base leading-relaxed">
             {PERSONA_GREETING[persona] ||
