@@ -416,9 +416,13 @@ async def submit_quiz(payload: QuizSubmit, request: Request, authorization: Opti
     await db.users.update_one(
         {"user_id": user.user_id},
         {"$set": {"xp": new_xp, "streak": new_streak,
-                  "last_active": datetime.now(timezone.utc).isoformat()},
-         "$push": {"badges": {"$each": new_badges}} if new_badges else {}},
+                  "last_active": datetime.now(timezone.utc).isoformat()}},
     )
+    if new_badges:
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$push": {"badges": {"$each": new_badges}}},
+        )
 
     return {"earned_xp": earned, "xp": new_xp, "streak": new_streak,
             "perfect": perfect, "new_badges": new_badges, "all_badges": user.badges + new_badges}

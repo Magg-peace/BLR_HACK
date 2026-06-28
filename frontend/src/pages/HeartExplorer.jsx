@@ -7,6 +7,7 @@ import {
 } from "../data/anatomy";
 import { useApp } from "../context/AppContext";
 import { Play, Pause, RotateCcw, X, Layers } from "lucide-react";
+import NarratorButton from "../components/NarratorButton";
 
 const HeartViewer = lazy(() =>
   import("../components/Anatomy3D").then((m) => ({ default: m.HeartViewer }))

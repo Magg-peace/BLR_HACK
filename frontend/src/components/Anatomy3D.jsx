@@ -281,8 +281,8 @@ function BrainHemisphere({ side = 1, color = "#e2bdb4", emissive = "#3a1a1c" }) 
     <mesh
       geometry={geom}
       material={mat}
-      position={[side * 0.55, 0.05, 0]}
-      scale={[0.95, 1.0, 1.15]}
+      position={[side * 0.78, 0.05, 0]}
+      scale={[0.9, 1.0, 1.18]}
     />
   );
 }
@@ -339,9 +339,15 @@ function AnatomicalBrain() {
       <BrainHemisphere side={-1} />
       <BrainHemisphere side={1} />
 
+      {/* Longitudinal fissure (dark gap) */}
+      <mesh position={[0, 0.1, 0]}>
+        <boxGeometry args={[0.08, 1.8, 1.6]} />
+        <meshBasicMaterial color="#1a0a14" />
+      </mesh>
+
       {/* Corpus callosum hint */}
-      <mesh position={[0, 0.05, 0]} rotation={[0, 0, 0]}>
-        <boxGeometry args={[0.04, 1.4, 1.4]} />
+      <mesh position={[0, -0.05, 0]} rotation={[0, 0, 0]}>
+        <boxGeometry args={[0.18, 0.18, 1.2]} />
         <meshPhysicalMaterial
           color="#f0d0c8"
           roughness={0.4}

@@ -364,13 +364,15 @@ export default function QuizArena() {
             {result.perfect ? <Crown size={36} /> : <Trophy size={32} />}
           </div>
           <h2 className="font-display text-3xl mb-2">
-            {result.perfect ? "Perfect Score!" : `${result.score} / ${result.total} correct`}
+            {result.perfect ? "Perfect Score!" : result.score === 0 ? "Don't give up!" : `${result.score} / ${result.total} correct`}
           </h2>
           <p className="text-white/65 mb-6">
             {submitting
               ? "Saving your score…"
               : result.anonymous
               ? "Sign in to save XP, streaks and unlock badges."
+              : result.score === 0
+              ? "Every expert was once a beginner. Review and retry."
               : `+${result.earned_xp} XP earned${
                   result.new_badges?.length ? ` · ${result.new_badges.length} new badge(s)!` : ""
                 }`}
