@@ -207,8 +207,11 @@ export default function HeartExplorer() {
                 </div>
 
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-4">
-                  <div className="text-[10px] tracking-[0.3em] uppercase text-[#00D4FF] mb-1">
-                    Narration · {persona?.replace("_", " ") || "medical student"}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[10px] tracking-[0.3em] uppercase text-[#00D4FF]">
+                      Narration · {persona?.replace("_", " ") || "medical student"}
+                    </div>
+                    <NarratorButton text={narration} label="Listen" />
                   </div>
                   <p className="text-sm leading-relaxed text-white/85">
                     {narration}

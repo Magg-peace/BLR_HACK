@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration 2 e2e validation of upgrades (realistic 3D anatomy, SSE tutor stream + persistent history, Quiz Arena with XP/streaks/badges/leaderboard, AR/VR Lab, audio narration). Backend 22/22 pytest passing (9 new + 13 from iteration 1 regression). Frontend mostly working — one CRITICAL runtime bug found: HeartExplorer.jsx uses <NarratorButton> without importing it, so the narrator button never renders on the Heart side panel (BrainExplorer is fine).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/quiz/submit", "issue": "MongoDB update spec uses `'$push': {'badges': {'$each': new_badges}} if new_badges else {}` which would emit an empty `$push: {}` operator on no-new-badge submissions. MongoDB tolerates this (no error observed), but it's fragile — recommend wrapping the push into the dict conditionally instead."},
+      {"endpoint": "POST /api/quiz/submit", "issue": "`last_active` is stored as ISO string; the streak comparison via `datetime.fromisoformat(last).date()` works but is locale-naive. Multi-timezone users could see streaks reset on UTC day boundary. Not blocking — flag for future."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "HeartExplorer (/app/heart) side panel",
+        "issue": "Runtime error 'NarratorButton is not defined' — HeartExplorer.jsx line 214 uses <NarratorButton text=... /> but the file never imports it. As a result the Narration card crashes and the Listen button never appears in the heart hotspot panel. BrainExplorer.jsx correctly imports it (line 10).",
+        "selector": "[data-testid='narrator-btn'] on heart explorer",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Landing hero brain mesh",
+        "issue": "Spec says brain should render as 'two hemispheres' via AnatomicalBrain. The mesh visible on landing renders as a single spiky displacement blob (gyri displacement applied to one sphere). No left/right hemisphere split visible. Heart looks correct (chambers + aorta + vena cava). Visual-quality nit, not a crash.",
+        "selector": "landing hero canvas",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Quiz results", "issues": ["After completing a quiz with all wrong picks, results screen shows '0/5 correct, +0 XP earned' with no encouragement copy and Retry+More buttons only — fine but bland. Toast '+0 XP earned' technically correct but odd UX (showing a +0 reward)."]},
+      {"screen": "Landing hero", "issues": ["Brain mesh visual quality below 'realistic 3D' bar set by the spec — currently looks like a low-poly thorny ball rather than gyri-folded hemispheres."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration2.py",
+    "/app/backend/tests/test_api.py",
+    "/app/test_reports/pytest/iter2_results.xml"
+  ],
+  "action_items": [
+    "FIX (1-line): add `import NarratorButton from '../components/NarratorButton';` at the top of /app/frontend/src/pages/HeartExplorer.jsx (BrainExplorer already has it at line 10).",
+    "(Visual polish) Revisit AnatomicalBrain in /app/frontend/src/components/Anatomy3D.jsx to render two distinct hemispheres separated by a longitudinal fissure, not a single displaced sphere.",
+    "(Minor) Clean up the conditional `$push` in submit_quiz to avoid emitting `$push: {}` when there are no new badges.",
+    "(Polish) Add encouragement copy on quiz results screen when score == 0."
+  ],
+  "critical_code_review_comments": [
+    "HeartExplorer.jsx is missing the NarratorButton import — production runtime error. This should have been caught by an ESLint no-undef rule.",
+    "tutor_stream correctly persists both user and assistant messages and emits the spec-conformant `data: {...}` SSE chunks with a final `{done:true, session_id, persona}` event. Verified via raw SSE iteration.",
+    "Quiz gamification: XP math (10/correct + 50 perfect bonus) verified — earned_xp == 100 for 5/5. Streak idempotency on same UTC day verified. Leaderboard ordered desc by xp and _id excluded.",
+    "Badge awarding is idempotent against existing badges (current + new dedupe in _award_badges). Good.",
+    "Frontend AskAI correctly uses fetch + ReadableStream (not EventSource) and includes credentials — observed POST /api/tutor/stream returning 200 with progressive UI fill and persisted history across reloads.",
+    "ARVRLab page renders without runtime errors, canvas mounts, all required testids (enter-ar, enter-vr, xr-target-heart, xr-target-brain) present and clickable. WebXR session itself not exercisable headlessly — acceptable per spec."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration2.py (new — 9 tests for badges, tutor stream/history, quiz submit, leaderboard)"
+  ],
+  "success_rate": {"backend": "100% (22/22 pytest)", "frontend": "~85% (Quiz, AskAI streaming+persistence, AR/VR, Brain narrator, Landing all working; Heart narrator broken due to missing import; brain hero mesh visual below spec)"},
+  "test_credentials": "Bearer test_session_anatomia_001 (also accepted as cookie session_token). User: test-user-anatomia / Dr. Test / medical_student. After this run XP=360, streak=1, badges include first-quiz/perfect-quiz/xp-100 — main agent may want to re-seed if next iteration expects pristine 100 XP.",
+  "seed_data_creation": "None new. The pre-existing test user XP was incremented by quiz submit tests (100 + 30 = +130 XP).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/{test_api.py, test_iteration2.py} — run `pytest backend/tests/ -v`. SSE stream test reads `r.iter_lines()` after `stream=True` and expects lines beginning with `data: `. AskAI on the frontend uses fetch+ReadableStream and was verified to call POST /api/tutor/stream returning 200 with full medical-student response. Heart Explorer narrator is broken until NarratorButton is imported. Test user XP/streak/badges have drifted from seed; rerun the seed script in /app/auth_testing.md if a clean baseline is required.",
+  "rca_of_the_issue": "Heart narrator failure RCA: /app/frontend/src/pages/HeartExplorer.jsx line 214 renders <NarratorButton text={narration} label='Listen' />, but the file lacks the corresponding `import NarratorButton from '../components/NarratorButton'` statement (BrainExplorer.jsx has it on line 10). At runtime React throws 'NarratorButton is not defined' (captured as a pageerror in Playwright), the Narration card subtree fails to render, and consequently no element with data-testid='narrator-btn' exists in the heart side panel. Fix is a one-line import addition. Reproduction: visit /app/heart, click any hotspot, check `document.querySelector('[data-testid=\"narrator-btn\"]')` → null."
+}

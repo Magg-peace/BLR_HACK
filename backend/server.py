@@ -1,17 +1,19 @@
-from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Cookie, Header
+from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Header
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import json
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 import httpx
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 
 ROOT_DIR = Path(__file__).parent
@@ -39,6 +41,10 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     persona: Optional[Persona] = None
+    xp: int = 0
+    streak: int = 0
+    badges: List[str] = []
+    last_active: Optional[str] = None
     created_at: datetime
 
 
@@ -52,13 +58,21 @@ class PersonaUpdate(BaseModel):
 
 class TutorMessage(BaseModel):
     message: str
-    topic: Optional[str] = None  # e.g., "Heart", "Brain", "Stroke"
-    persona: Optional[Persona] = None  # override (defaults to user's persona)
+    topic: Optional[str] = None
+    persona: Optional[Persona] = None
+    session_id: Optional[str] = None  # for chat persistence
 
 
 class TutorReply(BaseModel):
     reply: str
     persona: Persona
+
+
+class QuizSubmit(BaseModel):
+    quiz_id: str
+    score: int  # 0..total
+    total: int
+    duration_ms: Optional[int] = None
 
 
 # ============================ Auth Helpers ============================
@@ -94,8 +108,18 @@ async def get_current_user(request: Request, authorization: Optional[str] = Head
 
     if isinstance(user_doc.get("created_at"), str):
         user_doc["created_at"] = datetime.fromisoformat(user_doc["created_at"])
+    user_doc.setdefault("xp", 0)
+    user_doc.setdefault("streak", 0)
+    user_doc.setdefault("badges", [])
 
     return User(**user_doc)
+
+
+async def maybe_get_user(request: Request, authorization: Optional[str] = Header(None)) -> Optional[User]:
+    try:
+        return await get_current_user(request, authorization)
+    except HTTPException:
+        return None
 
 
 # ============================ Auth Routes ============================
@@ -103,7 +127,6 @@ async def get_current_user(request: Request, authorization: Optional[str] = Head
 
 @api_router.post("/auth/session")
 async def create_session(payload: SessionRequest, response: Response):
-    """Exchange Emergent session_id for a session_token, persist user, set cookie."""
     async with httpx.AsyncClient(timeout=15.0) as http_client:
         r = await http_client.get(
             EMERGENT_AUTH_SESSION_URL,
@@ -118,7 +141,6 @@ async def create_session(payload: SessionRequest, response: Response):
     picture = data.get("picture")
     session_token = data["session_token"]
 
-    # Upsert user (by email)
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         user_id = existing["user_id"]
@@ -134,10 +156,12 @@ async def create_session(payload: SessionRequest, response: Response):
             "name": name,
             "picture": picture,
             "persona": None,
+            "xp": 0,
+            "streak": 0,
+            "badges": [],
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
 
-    # Store session
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     await db.user_sessions.update_one(
         {"session_token": session_token},
@@ -151,24 +175,23 @@ async def create_session(payload: SessionRequest, response: Response):
     )
 
     response.set_cookie(
-        key="session_token",
-        value=session_token,
-        max_age=7 * 24 * 60 * 60,
-        path="/",
-        httponly=True,
-        secure=True,
-        samesite="none",
+        key="session_token", value=session_token, max_age=7 * 24 * 60 * 60,
+        path="/", httponly=True, secure=True, samesite="none",
     )
 
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     return {"user_id": user_doc["user_id"], "email": user_doc["email"], "name": user_doc["name"],
-            "picture": user_doc.get("picture"), "persona": user_doc.get("persona")}
+            "picture": user_doc.get("picture"), "persona": user_doc.get("persona"),
+            "xp": user_doc.get("xp", 0), "streak": user_doc.get("streak", 0),
+            "badges": user_doc.get("badges", [])}
 
 
 @api_router.get("/auth/me")
 async def auth_me(request: Request, authorization: Optional[str] = Header(None)):
     user = await get_current_user(request, authorization)
-    return user.model_dump()
+    d = user.model_dump()
+    d.pop("created_at", None)
+    return d
 
 
 @api_router.post("/auth/logout")
@@ -195,56 +218,217 @@ PERSONA_SYSTEM_PROMPTS = {
         "You are a friendly anatomy tutor for a SCHOOL STUDENT (age 12-17). "
         "Use simple language, fun analogies, everyday comparisons, and storytelling. "
         "Avoid heavy clinical jargon. Keep responses concise (3-6 short paragraphs). "
-        "Encourage curiosity with vivid imagery. Focus on the human Heart and Brain."
+        "Focus on the human Heart and Brain."
     ),
     "medical_student": (
         "You are a rigorous anatomy and physiology tutor for a MEDICAL STUDENT. "
         "Use precise anatomical terminology (Latin/Greek roots), embryology, histology, "
-        "and physiological mechanisms. Reference USMLE-style relevance. "
-        "Structure answers with clear sections: Anatomy, Physiology, Pathology, Clinical Correlation. "
-        "Focus on the human Heart and Brain."
+        "physiological mechanisms, USMLE-style relevance. "
+        "Structure: Anatomy, Physiology, Pathology, Clinical Correlation. Focus Heart & Brain."
     ),
     "doctor": (
         "You are a senior consultant briefing a PRACTICING DOCTOR. "
-        "Emphasize clinical decision making, differential diagnosis, hemodynamics, imaging findings, "
-        "interventions, surgical relevance, evidence-based guidelines (latest), and pitfalls. "
-        "Be terse, technical, and confident. Cite landmark trials/guidelines by name when relevant. "
-        "Focus on cardiology and neurology — Heart and Brain."
+        "Emphasize clinical decision making, differential diagnosis, hemodynamics, imaging, "
+        "interventions, evidence-based guidelines, and pitfalls. Cite landmark trials. "
+        "Focus cardiology and neurology — Heart and Brain."
     ),
 }
 
 
+def _persona_system(persona: str, topic: Optional[str]) -> str:
+    msg = PERSONA_SYSTEM_PROMPTS.get(persona, PERSONA_SYSTEM_PROMPTS["medical_student"])
+    if topic:
+        msg += f"\n\nCurrent topic context: {topic}."
+    return msg
+
+
+async def _save_chat(session_id: str, user_id: Optional[str], role: str, content: str):
+    await db.chat_messages.insert_one({
+        "session_id": session_id,
+        "user_id": user_id,
+        "role": role,
+        "content": content,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 @api_router.post("/tutor/chat", response_model=TutorReply)
 async def tutor_chat(payload: TutorMessage, request: Request, authorization: Optional[str] = Header(None)):
+    """Non-streaming tutor for compatibility."""
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
+    user = await maybe_get_user(request, authorization)
+    persona = (user.persona if user else None) or payload.persona or "medical_student"
+    session_id = payload.session_id or (f"tutor_{user.user_id}" if user else f"tutor_anon_{uuid.uuid4().hex[:8]}")
 
-    # Allow anonymous use of tutor (persona from payload), but if logged in, prefer user persona
-    persona: Persona = payload.persona or "medical_student"
-    try:
-        user = await get_current_user(request, authorization)
-        persona = user.persona or persona
-        session_id = f"tutor_{user.user_id}"
-    except HTTPException:
-        session_id = f"tutor_anon_{uuid.uuid4().hex[:8]}"
-
-    system_msg = PERSONA_SYSTEM_PROMPTS.get(persona, PERSONA_SYSTEM_PROMPTS["medical_student"])
-    if payload.topic:
-        system_msg += f"\n\nCurrent topic context: {payload.topic}."
-
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=session_id,
-        system_message=system_msg,
-    ).with_model("gemini", "gemini-3-flash-preview")
-
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+                   system_message=_persona_system(persona, payload.topic)
+                   ).with_model("gemini", "gemini-3-flash-preview")
     try:
         reply_text = await chat.send_message(UserMessage(text=payload.message))
     except Exception as e:
         logger.exception("LLM error")
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
+    user_id = user.user_id if user else None
+    await _save_chat(session_id, user_id, "user", payload.message)
+    await _save_chat(session_id, user_id, "assistant", str(reply_text))
     return TutorReply(reply=str(reply_text), persona=persona)
+
+
+@api_router.post("/tutor/stream")
+async def tutor_stream(payload: TutorMessage, request: Request, authorization: Optional[str] = Header(None)):
+    """SSE streaming tutor."""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    user = await maybe_get_user(request, authorization)
+    persona = (user.persona if user else None) or payload.persona or "medical_student"
+    session_id = payload.session_id or (f"tutor_{user.user_id}" if user else f"tutor_anon_{uuid.uuid4().hex[:8]}")
+    user_id = user.user_id if user else None
+
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+                   system_message=_persona_system(persona, payload.topic)
+                   ).with_model("gemini", "gemini-3-flash-preview")
+
+    async def event_stream():
+        full = []
+        await _save_chat(session_id, user_id, "user", payload.message)
+        try:
+            async for ev in chat.stream_message(UserMessage(text=payload.message)):
+                if isinstance(ev, TextDelta):
+                    full.append(ev.content)
+                    data = json.dumps({"delta": ev.content})
+                    yield f"data: {data}\n\n"
+                elif isinstance(ev, StreamDone):
+                    break
+        except Exception as e:
+            logger.exception("LLM stream error")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        # Persist assistant reply
+        await _save_chat(session_id, user_id, "assistant", "".join(full))
+        yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'persona': persona})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
+@api_router.get("/tutor/history")
+async def tutor_history(request: Request, authorization: Optional[str] = Header(None),
+                        session_id: Optional[str] = None, limit: int = 100):
+    """Return chat history. Authenticated users get their default session by default."""
+    user = await maybe_get_user(request, authorization)
+    sid = session_id or (f"tutor_{user.user_id}" if user else None)
+    if not sid:
+        return {"messages": [], "session_id": None}
+    docs = await db.chat_messages.find({"session_id": sid}, {"_id": 0}).sort("created_at", 1).to_list(limit)
+    return {"messages": docs, "session_id": sid}
+
+
+@api_router.delete("/tutor/history")
+async def tutor_history_clear(request: Request, authorization: Optional[str] = Header(None),
+                              session_id: Optional[str] = None):
+    user = await maybe_get_user(request, authorization)
+    sid = session_id or (f"tutor_{user.user_id}" if user else None)
+    if not sid:
+        return {"deleted": 0}
+    res = await db.chat_messages.delete_many({"session_id": sid})
+    return {"deleted": res.deleted_count}
+
+
+# ============================ Gamification (XP / streak / badges) ============================
+
+BADGE_RULES = [
+    {"id": "first-quiz",   "name": "First Quiz",       "xp": 50,   "icon": "trophy"},
+    {"id": "perfect-quiz", "name": "Perfect Score",    "xp": 100,  "icon": "star"},
+    {"id": "xp-100",       "name": "100 XP Club",      "xp": 100,  "icon": "sparkles"},
+    {"id": "xp-500",       "name": "Anatomy Apprentice", "xp": 500, "icon": "graduation-cap"},
+    {"id": "xp-1000",      "name": "Anatomy Master",   "xp": 1000, "icon": "crown"},
+    {"id": "streak-3",     "name": "3-Day Streak",     "xp": 75,   "icon": "flame"},
+    {"id": "streak-7",     "name": "Week-Long Streak", "xp": 150,  "icon": "flame"},
+]
+
+
+def _award_badges(xp: int, streak: int, current: List[str], perfect: bool, first: bool) -> List[str]:
+    new = []
+    def add(b):
+        if b not in current and b not in new:
+            new.append(b)
+    if first: add("first-quiz")
+    if perfect: add("perfect-quiz")
+    if xp >= 100: add("xp-100")
+    if xp >= 500: add("xp-500")
+    if xp >= 1000: add("xp-1000")
+    if streak >= 3: add("streak-3")
+    if streak >= 7: add("streak-7")
+    return new
+
+
+@api_router.get("/badges")
+async def list_badges():
+    return BADGE_RULES
+
+
+@api_router.post("/quiz/submit")
+async def submit_quiz(payload: QuizSubmit, request: Request, authorization: Optional[str] = Header(None)):
+    user = await get_current_user(request, authorization)
+
+    # Award XP: 10 per correct + perfect bonus
+    earned = payload.score * 10
+    perfect = payload.score == payload.total and payload.total > 0
+    if perfect:
+        earned += 50
+
+    # Streak: if last_active is yesterday, +1; if today, keep; else reset to 1
+    today = datetime.now(timezone.utc).date()
+    last = user.last_active
+    last_date = None
+    if last:
+        try:
+            last_date = datetime.fromisoformat(last).date()
+        except Exception:
+            last_date = None
+
+    if last_date == today:
+        new_streak = max(1, user.streak)
+    elif last_date == today - timedelta(days=1):
+        new_streak = user.streak + 1
+    else:
+        new_streak = 1
+
+    # First-ever quiz?
+    prior = await db.quiz_results.count_documents({"user_id": user.user_id})
+    new_xp = user.xp + earned
+    new_badges = _award_badges(new_xp, new_streak, user.badges, perfect, first=(prior == 0))
+
+    await db.quiz_results.insert_one({
+        "user_id": user.user_id,
+        "quiz_id": payload.quiz_id,
+        "score": payload.score,
+        "total": payload.total,
+        "earned_xp": earned,
+        "perfect": perfect,
+        "duration_ms": payload.duration_ms,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"xp": new_xp, "streak": new_streak,
+                  "last_active": datetime.now(timezone.utc).isoformat()},
+         "$push": {"badges": {"$each": new_badges}} if new_badges else {}},
+    )
+
+    return {"earned_xp": earned, "xp": new_xp, "streak": new_streak,
+            "perfect": perfect, "new_badges": new_badges, "all_badges": user.badges + new_badges}
+
+
+@api_router.get("/leaderboard")
+async def leaderboard(limit: int = 10):
+    top = await db.users.find({}, {"_id": 0, "name": 1, "picture": 1, "xp": 1, "streak": 1, "badges": 1}) \
+        .sort("xp", -1).limit(limit).to_list(limit)
+    return {"top": top}
 
 
 # ============================ Health ============================
@@ -252,7 +436,7 @@ async def tutor_chat(payload: TutorMessage, request: Request, authorization: Opt
 
 @api_router.get("/")
 async def root():
-    return {"app": "Anatomia AI", "status": "ok"}
+    return {"app": "Anatomia AI", "status": "ok", "features": ["auth", "tutor", "tutor_stream", "quiz", "leaderboard"]}
 
 
 app.include_router(api_router)
