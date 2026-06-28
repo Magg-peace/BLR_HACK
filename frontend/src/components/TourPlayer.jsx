@@ -18,6 +18,7 @@ export default function TourPlayer({
   onFocus,
   onClose,
   hotspotPositions = {},      // { id: [x%, y%] }
+  particleColor = "rgba(255,94,125,1)",
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -78,7 +79,7 @@ export default function TourPlayer({
     <>
       {/* Particle stream overlay */}
       {pathPoints.length >= 2 && (
-        <ParticleStream points={pathPoints} active={playing} />
+        <ParticleStream points={pathPoints} active={playing} color={particleColor} />
       )}
 
       {/* Player banner */}
@@ -158,32 +159,33 @@ export default function TourPlayer({
  * Animated stream of small particles flowing along the polyline defined by `points`.
  * points: [[xPct, yPct], ...]  in [0,1]
  */
-function ParticleStream({ points, active = true }) {
+function ParticleStream({ points, active = true, color = "rgba(255,94,125,1)" }) {
   const N_PARTICLES = 18;
   const particles = Array.from({ length: N_PARTICLES });
+  // Build rgba variants for stroke + dot
+  const stroke = color.replace(/,\s*1\)\s*$/, ", 0.35)");
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
-      {/* Connecting path glow */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <polyline
           points={points.map(([x, y]) => `${x * 100},${y * 100}`).join(" ")}
           fill="none"
-          stroke="rgba(255,94,125,0.35)"
+          stroke={stroke}
           strokeWidth="0.7"
           strokeLinejoin="round"
           strokeDasharray="2 2"
-          style={{ filter: "drop-shadow(0 0 6px rgba(255,94,125,0.5))" }}
+          style={{ filter: `drop-shadow(0 0 6px ${stroke})` }}
         />
       </svg>
       {active &&
         particles.map((_, i) => (
-          <FlowDot key={i} delay={(i / N_PARTICLES) * 6} points={points} />
+          <FlowDot key={i} delay={(i / N_PARTICLES) * 6} points={points} color={color} />
         ))}
     </div>
   );
 }
 
-function FlowDot({ delay, points }) {
+function FlowDot({ delay, points, color = "rgba(255,94,125,1)" }) {
   const [pos, setPos] = useState(() =>
     points && points.length > 0 ? [points[0][0], points[0][1]] : [0, 0]
   );
@@ -216,9 +218,8 @@ function FlowDot({ delay, points }) {
       style={{
         left: `${pos[0] * 100}%`,
         top: `${pos[1] * 100}%`,
-        background:
-          "radial-gradient(circle, rgba(255,94,125,1) 0%, rgba(255,94,125,0.5) 60%, transparent 80%)",
-        boxShadow: "0 0 14px rgba(255,94,125,0.85)",
+        background: `radial-gradient(circle, ${color} 0%, ${color.replace(/,\s*1\)/, ", 0.5)")} 60%, transparent 80%)`,
+        boxShadow: `0 0 14px ${color.replace(/,\s*1\)/, ", 0.85)")}`,
       }}
       className="absolute -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full"
     />

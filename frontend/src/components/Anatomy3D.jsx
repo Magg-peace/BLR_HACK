@@ -4,6 +4,8 @@ import { OrbitControls, Float } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
+import HeartDiseaseOverlay from "./HeartDiseaseOverlay";
+import { CameraFlythrough } from "./CameraFlythrough";
 
 /* =========================================================
    ANATOMICAL HEART  — composite mesh
@@ -440,7 +442,13 @@ export function Hero3D({ variant = "both" }) {
   );
 }
 
-export function HeartViewer({ pulse = true, controls = true }) {
+export function HeartViewer({
+  pulse = true,
+  controls = true,
+  disease = null,
+  severity = 0,
+  flythrough = null,   // {waypoints, stepIdx, active}
+}) {
   return (
     <Canvas
       camera={{ position: [0, 0, 4.5], fov: 42 }}
@@ -452,18 +460,32 @@ export function HeartViewer({ pulse = true, controls = true }) {
       <pointLight position={[-4, -2, 3]} intensity={1.3} color="#9D7BFF" />
       <directionalLight position={[0, 5, 5]} intensity={0.7} />
       <spotLight position={[0, 6, 2]} angle={0.4} penumbra={1} intensity={0.5} color="#fff" />
-      <Float speed={1.0} floatIntensity={0.45} rotationIntensity={0.2}>
+      <Float
+        speed={flythrough?.active ? 0 : 1.0}
+        floatIntensity={flythrough?.active ? 0 : 0.45}
+        rotationIntensity={flythrough?.active ? 0 : 0.2}
+      >
         <group scale={1.35}>
           <AnatomicalHeart pulse={pulse} />
+          {disease && <HeartDiseaseOverlay disease={disease} severity={severity} />}
         </group>
       </Float>
-      {controls && <OrbitControls enableZoom enablePan={false} autoRotate autoRotateSpeed={0.5} />}
+      {controls && !flythrough?.active && (
+        <OrbitControls enableZoom enablePan={false} autoRotate autoRotateSpeed={0.5} />
+      )}
+      {flythrough?.active && flythrough.waypoints && (
+        <CameraFlythrough
+          waypoints={flythrough.waypoints}
+          stepIdx={flythrough.stepIdx}
+          active={flythrough.active}
+        />
+      )}
       <CinematicFX />
     </Canvas>
   );
 }
 
-export function BrainViewer({ controls = true }) {
+export function BrainViewer({ controls = true, flythrough = null }) {
   return (
     <Canvas
       camera={{ position: [0, 0, 4.5], fov: 42 }}
@@ -474,12 +496,25 @@ export function BrainViewer({ controls = true }) {
       <pointLight position={[4, 4, 4]} intensity={1.5} color="#C0A6FF" />
       <pointLight position={[-4, -2, 3]} intensity={1.2} color="#ffb6a8" />
       <directionalLight position={[0, 5, 5]} intensity={0.7} />
-      <Float speed={0.85} floatIntensity={0.45} rotationIntensity={0.18}>
+      <Float
+        speed={flythrough?.active ? 0 : 0.85}
+        floatIntensity={flythrough?.active ? 0 : 0.45}
+        rotationIntensity={flythrough?.active ? 0 : 0.18}
+      >
         <group scale={1.35}>
           <AnatomicalBrain />
         </group>
       </Float>
-      {controls && <OrbitControls enableZoom enablePan={false} autoRotate autoRotateSpeed={0.45} />}
+      {controls && !flythrough?.active && (
+        <OrbitControls enableZoom enablePan={false} autoRotate autoRotateSpeed={0.45} />
+      )}
+      {flythrough?.active && flythrough.waypoints && (
+        <CameraFlythrough
+          waypoints={flythrough.waypoints}
+          stepIdx={flythrough.stepIdx}
+          active={flythrough.active}
+        />
+      )}
       <CinematicFX />
     </Canvas>
   );

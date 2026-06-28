@@ -140,6 +140,7 @@ export default function PathwayQuiz({ pathwayId = "blood-flow", onClose }) {
                 setOverIdx(null);
               }}
               data-testid={`pathway-item-${i}`}
+              data-state={submitted ? (correct ? "correct" : "incorrect") : "pending"}
               className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
                 correct
                   ? "bg-[#4ADE80]/10 border-[#4ADE80]/50"

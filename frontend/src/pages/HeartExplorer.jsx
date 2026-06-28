@@ -6,10 +6,12 @@ import {
   HEART_TOURS,
 } from "../data/anatomy";
 import { useApp } from "../context/AppContext";
-import { Play, Pause, RotateCcw, X, Layers } from "lucide-react";
+import { Play, Pause, RotateCcw, X, Layers, Activity } from "lucide-react";
 import NarratorButton from "../components/NarratorButton";
 import TourPlayer from "../components/TourPlayer";
 import ECGMonitor from "../components/ECGMonitor";
+import { HEART_FLYTHROUGH } from "../components/CameraFlythrough";
+import { HEART_DISEASES } from "../data/diseases";
 
 const HeartViewer = lazy(() =>
   import("../components/Anatomy3D").then((m) => ({ default: m.HeartViewer }))
@@ -22,6 +24,8 @@ export default function HeartExplorer() {
   const [pulse, setPulse] = useState(true);
   const [tour, setTour] = useState(null); // tour id
   const [tourStep, setTourStep] = useState(0);
+  const [diseaseId, setDiseaseId] = useState(null);
+  const [severity, setSeverity] = useState(0.5);
 
   const structures = HEART_STRUCTURES.filter((s) => s.layer === layer);
   const currentStructure = HEART_STRUCTURES.find((s) => s.id === active);
@@ -117,7 +121,20 @@ export default function HeartExplorer() {
               </div>
             }
           >
-            <HeartViewer pulse={pulse} />
+            <HeartViewer
+              pulse={pulse}
+              disease={diseaseId}
+              severity={severity}
+              flythrough={
+                tour
+                  ? {
+                      waypoints: HEART_FLYTHROUGH[tour] || [],
+                      stepIdx: tourStep,
+                      active: true,
+                    }
+                  : null
+              }
+            />
           </Suspense>
 
           {/* Hotspot overlay */}
@@ -271,6 +288,64 @@ export default function HeartExplorer() {
 
           {/* Live ECG */}
           <ECGMonitor defaultBpm={72} />
+
+          {/* Disease Overlay Controls */}
+          <div className="glass rounded-3xl p-5" data-testid="disease-overlay-controls">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-lg inline-flex items-center gap-2">
+                <Activity size={16} className="text-[#FF5E7D]" /> Disease Overlay
+              </h3>
+              {diseaseId && (
+                <button
+                  onClick={() => setDiseaseId(null)}
+                  data-testid="disease-clear"
+                  className="text-[10px] text-white/55 hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <select
+              value={diseaseId || ""}
+              onChange={(e) => setDiseaseId(e.target.value || null)}
+              data-testid="disease-select"
+              className="w-full bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-[#FF5E7D]/60"
+            >
+              <option value="" className="bg-[#07111F]">— None —</option>
+              {HEART_DISEASES.map((d) => (
+                <option key={d.id} value={d.id} className="bg-[#07111F]">
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            {diseaseId && (
+              <>
+                <div className="mt-4 flex items-center justify-between text-xs text-white/60 mb-1.5">
+                  <span>Severity</span>
+                  <span
+                    className="font-mono"
+                    style={{ color: severity < 0.34 ? "#4ADE80" : severity < 0.67 ? "#F59E0B" : "#EF4444" }}
+                  >
+                    {Math.round(severity * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={severity}
+                  onChange={(e) => setSeverity(Number(e.target.value))}
+                  data-testid="disease-severity"
+                  className="w-full accent-[#FF5E7D]"
+                />
+                <p className="text-[11px] text-white/55 mt-3 leading-relaxed">
+                  Watch plaque grow on the coronary arteries in real time. At severe
+                  levels, necrosis darkens the apex.
+                </p>
+              </>
+            )}
+          </div>
         </aside>
       </div>
     </div>

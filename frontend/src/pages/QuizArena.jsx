@@ -19,6 +19,7 @@ import {
 import { QUIZZES } from "../data/quizzes";
 import { API, useApp } from "../context/AppContext";
 import PathwayQuiz, { PATHWAYS } from "../components/PathwayQuiz";
+import HotspotQuiz from "../components/HotspotQuiz";
 
 const BADGE_ICONS = {
   trophy: Trophy,
@@ -51,6 +52,7 @@ export default function QuizArena() {
   const current = quiz?.questions[idx];
 
   const [pathwayOpen, setPathwayOpen] = useState(null);
+  const [hotspotOpen, setHotspotOpen] = useState(null); // 'heart' | 'brain'
 
   const start = (id) => {
     setActiveId(id);
@@ -137,7 +139,7 @@ export default function QuizArena() {
         </div>
       </header>
 
-      {!activeId && !pathwayOpen && (
+      {!activeId && !pathwayOpen && !hotspotOpen && (
         <>
           <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {QUIZZES.map((q, i) => (
@@ -224,6 +226,40 @@ export default function QuizArena() {
                 <p className="text-white/55 text-sm">{p.items.length} positions · pathway</p>
               </motion.button>
             ))}
+
+            {/* Hotspot quiz cards */}
+            {[
+              { id: "heart", label: "Find Heart Structures", color: "#FF5E7D", Icon: Heart },
+              { id: "brain", label: "Find Brain Regions", color: "#7C4DFF", Icon: Brain },
+            ].map((h, i) => (
+              <motion.button
+                key={h.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: (i + QUIZZES.length + PATHWAYS.length) * 0.08 }}
+                onClick={() => setHotspotOpen(h.id)}
+                data-testid={`hotspot-card-${h.id}`}
+                className="text-left glass-interactive rounded-3xl p-6 relative overflow-hidden group"
+              >
+                <div
+                  className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-25 group-hover:opacity-55 transition-opacity"
+                  style={{ background: h.color }}
+                />
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: h.color + "33", border: `1px solid ${h.color}80` }}
+                  >
+                    <h.Icon size={16} color={h.color} />
+                  </div>
+                  <span className="text-[10px] tracking-[0.25em] uppercase px-2 py-1 rounded-full text-[#F59E0B] bg-[#F59E0B]/15 border border-[#F59E0B]/40">
+                    Tap the Spot
+                  </span>
+                </div>
+                <h3 className="font-display text-xl mb-2">{h.label}</h3>
+                <p className="text-white/55 text-sm">5 random structures · live 3D</p>
+              </motion.button>
+            ))}
           </section>
 
           {/* Badges row */}
@@ -298,6 +334,11 @@ export default function QuizArena() {
       {/* PATHWAY QUIZ MODE */}
       {pathwayOpen && (
         <PathwayQuiz pathwayId={pathwayOpen} onClose={() => setPathwayOpen(null)} />
+      )}
+
+      {/* HOTSPOT QUIZ MODE */}
+      {hotspotOpen && (
+        <HotspotQuiz organ={hotspotOpen} count={5} onClose={() => setHotspotOpen(null)} />
       )}
 
       {/* QUIZ in progress */}

@@ -9,6 +9,7 @@ import { useApp } from "../context/AppContext";
 import { X, Layers, RotateCcw } from "lucide-react";
 import NarratorButton from "../components/NarratorButton";
 import TourPlayer from "../components/TourPlayer";
+import { BRAIN_FLYTHROUGH } from "../components/CameraFlythrough";
 
 const BrainViewer = lazy(() =>
   import("../components/Anatomy3D").then((m) => ({ default: m.BrainViewer }))
@@ -102,7 +103,17 @@ export default function BrainExplorer() {
               </div>
             }
           >
-            <BrainViewer />
+            <BrainViewer
+              flythrough={
+                tour
+                  ? {
+                      waypoints: BRAIN_FLYTHROUGH[tour] || [],
+                      stepIdx: tourStep,
+                      active: true,
+                    }
+                  : null
+              }
+            />
           </Suspense>
 
           <div className="absolute inset-0 pointer-events-none">
@@ -148,6 +159,7 @@ export default function BrainExplorer() {
                 if (idx >= 0) setTourStep(idx);
               }}
               hotspotPositions={brainHotspots}
+              particleColor="rgba(124,77,255,1)"
             />
           )}
         </div>
