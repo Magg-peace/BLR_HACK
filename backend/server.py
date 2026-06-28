@@ -14,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from emergentintegrations.llm.openai import OpenAITextToSpeech
 
 
 ROOT_DIR = Path(__file__).parent
@@ -433,6 +434,45 @@ async def leaderboard(limit: int = 10):
     top = await db.users.find({}, {"_id": 0, "name": 1, "picture": 1, "xp": 1, "streak": 1, "badges": 1}) \
         .sort("xp", -1).limit(limit).to_list(limit)
     return {"top": top}
+
+
+# ============================ Text-to-Speech ============================
+
+PERSONA_VOICE = {
+    "school_student": "nova",       # energetic, upbeat
+    "medical_student": "sage",      # wise, measured
+    "doctor": "onyx",               # deep, authoritative
+}
+
+
+class TTSRequest(BaseModel):
+    text: str
+    persona: Optional[Persona] = None
+    voice: Optional[str] = None
+    speed: float = 1.0
+
+
+@api_router.post("/tts")
+async def text_to_speech(payload: TTSRequest):
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+    text = text[:4000]
+    voice = payload.voice or PERSONA_VOICE.get(payload.persona or "medical_student", "sage")
+    try:
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        audio = await tts.generate_speech(text=text, model="tts-1", voice=voice,
+                                          speed=max(0.5, min(2.0, payload.speed)),
+                                          response_format="mp3")
+    except Exception as e:
+        logger.exception("TTS error")
+        raise HTTPException(status_code=502, detail=f"TTS error: {e}")
+
+    from fastapi.responses import Response as FastResponse
+    return FastResponse(content=audio, media_type="audio/mpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ============================ Health ============================

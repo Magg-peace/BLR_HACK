@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from "react";
+import React, { Suspense, lazy, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HEART_STRUCTURES,
@@ -8,6 +8,8 @@ import {
 import { useApp } from "../context/AppContext";
 import { Play, Pause, RotateCcw, X, Layers } from "lucide-react";
 import NarratorButton from "../components/NarratorButton";
+import TourPlayer from "../components/TourPlayer";
+import ECGMonitor from "../components/ECGMonitor";
 
 const HeartViewer = lazy(() =>
   import("../components/Anatomy3D").then((m) => ({ default: m.HeartViewer }))
@@ -54,6 +56,11 @@ export default function HeartExplorer() {
       stopTour();
     }
   };
+
+  const heartHotspots = useMemo(
+    () => Object.fromEntries(HEART_STRUCTURES.map((s) => [s.id, s.pos])),
+    []
+  );
 
   return (
     <div className="space-y-5" data-testid="heart-explorer">
@@ -148,31 +155,19 @@ export default function HeartExplorer() {
             ))}
           </div>
 
-          {/* Tour banner */}
+          {/* Tour player (new) */}
           {currentTour && (
-            <div className="absolute bottom-5 left-5 right-5 glass rounded-2xl p-4 flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] tracking-[0.3em] uppercase text-[#00D4FF] mb-1">
-                  {currentTour.title} · Step {tourStep + 1}/{currentTour.steps.length}
-                </div>
-                <div className="text-sm text-white/85 truncate">
-                  {currentTourStep?.caption}
-                </div>
-              </div>
-              <button
-                onClick={advanceTour}
-                data-testid="tour-next"
-                className="px-4 py-2 rounded-full bg-[#7C4DFF] text-white text-sm font-medium hover:bg-[#6538E6] transition-all"
-              >
-                {tourStep + 1 < currentTour.steps.length ? "Next" : "Finish"}
-              </button>
-              <button
-                onClick={stopTour}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-all"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <TourPlayer
+              tour={currentTour}
+              persona={persona}
+              onClose={stopTour}
+              onFocus={(id) => {
+                setActive(id);
+                const stepIdx = currentTour.steps.findIndex((s) => s.focus === id);
+                if (stepIdx >= 0) setTourStep(stepIdx);
+              }}
+              hotspotPositions={heartHotspots}
+            />
           )}
         </div>
 
@@ -273,6 +268,9 @@ export default function HeartExplorer() {
               </button>
             )}
           </div>
+
+          {/* Live ECG */}
+          <ECGMonitor defaultBpm={72} />
         </aside>
       </div>
     </div>

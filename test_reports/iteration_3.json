@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 3 e2e validation of v0.3 upgrades (OpenAI TTS, Live ECG, Dynamic Tour Engine, drag-drop pathway quizzes, expanded brain/heart tours). Backend 16/16 pytest passing (8 new TTS tests + 8 regression). Frontend: ECG monitor with WebAudio, Tour Player with traveling particles + 'Did you know?' facts + auto-play TTS, all 5 brain tours, both pathway quizzes, and narrator button placement all working end-to-end. No critical bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/tts", "issue": "Server sets `Cache-Control: public, max-age=86400` but the Cloudflare/preview proxy overrides it to `no-store, no-cache, must-revalidate`, so client-side MP3 caching never activates in this environment. Functionally harmless (browser will still buffer), but the explicit cache directive is being silently dropped."},
+      {"endpoint": "POST /api/tutor/chat", "issue": "Observed one transient 502 (LLM gateway flake) during the first run; retry succeeded. Recommend adding a single internal retry on emergentintegrations transient errors so users don't see 502 on first chat turn."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "PathwayQuiz submit feedback color check", "issue": "Selector-level: green/red highlighting works visually (verified in screenshot — 'Lungs' row tinted green with check icon, mismatched rows red with '→ was: …' hint) but the classes used are tailwind utility classes that won't match a generic [class*='green'] CSS selector. Recommend adding `data-correct='true|false'` or `data-state='correct|incorrect'` on the pathway item rows after submit for easier test assertion.", "affected_selectors": ["[data-testid='pathway-item-N']"]}
+    ],
+    "design_issues": [
+      {"screen": "Brain Explorer tour particles", "issues": ["Tour spec says 'animated purple particles' for brain tours, but the particles render with the same pink/rose color as heart tours (see screenshot of Speech Pathway tour). Consider per-organ particle tint (purple for brain, pink for heart) so the visual identity matches the spec."]},
+      {"screen": "Heart Explorer Tour Player", "issues": ["The Tour Player narrator 'Listen' button shows a 'Loading…' label until the TTS MP3 fetches; on slow networks this lingers. Optional: add a short skeleton/spinner inside the button instead of plain text."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/test_iteration2.py",
+    "/app/backend/tests/test_api.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "(Optional polish) Add data-state attribute to pathway-item rows after submit for deterministic test assertions.",
+    "(Optional polish) Distinguish brain tour particle color (purple) from heart (pink) per spec.",
+    "(Optional) Add a 1-retry around emergentintegrations LlmChat calls in /api/tutor/chat to mask transient 502s.",
+    "(No-op for now) Preview proxy strips Cache-Control on /api/tts — no action needed unless self-hosted."
+  ],
+  "critical_code_review_comments": [
+    "TTS endpoint correctly validates empty text (400), truncates >4000 chars, maps personas (school_student→nova, medical_student→sage, doctor→onyx), and returns audio/mpeg with proper MP3 header (ID3/0xFFE0 frame sync). Verified for all 3 personas.",
+    "NarratorButton import bug from iter2 is fixed in HeartExplorer.jsx (line 10). Narrator button now renders on hotspot detail panel AND inside TourPlayer. The TTS-first-then-Web-Speech-fallback flow is exercised in the Tour Player auto-play path (network panel shows /api/tts requests on tour start).",
+    "TourPlayer correctly auto-advances steps using step.duration, renders SVG polyline between hotspot coords, animates flowing particles along the polyline, and surfaces step.fact in the 'Did you know?' pill. All 5 brain tours (memory, neural-signal, motor-control, speech, emotion) and 3 heart tours load and play.",
+    "ECGMonitor renders animated SVG P-QRS-T waveform with controllable bpm (40-180 range verified), run/sound toggles wired, and WebAudio lub-dub init does not throw in headless (no console errors). All required data-testids present (ecg-monitor, ecg-bpm, ecg-toggle-run, ecg-toggle-sound).",
+    "PathwayQuiz submits to /api/quiz/submit with score=correctly_placed_count and total=items.length, which means the gamification XP math is consistent with MCQ submissions. Verified 200 response and +XP toast on submit.",
+    "Two console 401s observed on Quiz Arena first-load — looks like /api/auth/me being polled before the session cookie is attached on the very first request. Self-heals on next render; not user-visible. Worth a small follow-up to gate the call behind cookie presence."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py (new — 16 tests: 8 TTS + 8 regression)"
+  ],
+  "success_rate": {"backend": "100% (16/16 iter3, 22/22 iter2 still passing)", "frontend": "100% on critical flows (ECG, Tour Player, brain 5-tour suite, pathway drag-drop, narrator button)"},
+  "test_credentials": "Bearer test_session_anatomia_001 / cookie session_token=test_session_anatomia_001 (user test-user-anatomia / Dr. Test / medical_student). After this run XP=520, streak=1, badges=4 — drift from the ~390 baseline due to quiz submissions during testing.",
+  "seed_data_creation": "None new; reused existing test user. Each pytest run adds ~140 XP via quiz/submit tests; rerun /app/auth_testing.md cleanup+seed if a pristine baseline is needed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 3 backend tests in /app/backend/tests/test_iteration3.py — class TestTTS covers POST /api/tts (3 personas, empty→400, missing→422, long-text truncation→200 streamed, default voice, cache header). TestRegression covers /api/auth/me, /api/auth/session (POST-only, GET→405), /api/user/persona, /api/tutor/chat (with 1-retry for transient 502), /api/tutor/history, /api/badges, /api/leaderboard, /api/quiz/submit. Run with `pytest backend/tests/ -v`. Frontend: TTS network calls fire on Tour Player start (~2 calls per blood-flow tour). Brain particles currently pink — spec says purple. PathwayQuiz feedback uses tailwind classes; not query-able via [class*='green'] selectors but visually correct.",
+  "rca_of_the_issue": "No critical issues to RCA. Two intermittent observations: (a) one POST /api/tutor/chat returned 502 on first attempt — retried 200; likely upstream emergentintegrations gateway hiccup, not deterministic. (b) Preview proxy rewrites Cache-Control on /api/tts to no-store; benign in this environment."
+}

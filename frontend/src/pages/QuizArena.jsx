@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { QUIZZES } from "../data/quizzes";
 import { API, useApp } from "../context/AppContext";
+import PathwayQuiz, { PATHWAYS } from "../components/PathwayQuiz";
 
 const BADGE_ICONS = {
   trophy: Trophy,
@@ -48,6 +49,8 @@ export default function QuizArena() {
   const quiz = useMemo(() => QUIZZES.find((q) => q.id === activeId), [activeId]);
   const totalQ = quiz?.questions.length || 0;
   const current = quiz?.questions[idx];
+
+  const [pathwayOpen, setPathwayOpen] = useState(null);
 
   const start = (id) => {
     setActiveId(id);
@@ -134,7 +137,7 @@ export default function QuizArena() {
         </div>
       </header>
 
-      {!activeId && (
+      {!activeId && !pathwayOpen && (
         <>
           <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {QUIZZES.map((q, i) => (
@@ -180,6 +183,45 @@ export default function QuizArena() {
                 </div>
                 <h3 className="font-display text-xl mb-2">{q.title}</h3>
                 <p className="text-white/55 text-sm">{q.questions.length} questions · ~{q.questions.length} min</p>
+              </motion.button>
+            ))}
+
+            {/* Drag-and-drop pathway cards */}
+            {PATHWAYS.map((p, i) => (
+              <motion.button
+                key={p.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: (i + QUIZZES.length) * 0.08 }}
+                onClick={() => setPathwayOpen(p.id)}
+                data-testid={`pathway-card-${p.id}`}
+                className="text-left glass-interactive rounded-3xl p-6 relative overflow-hidden group"
+              >
+                <div
+                  className={`absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-25 group-hover:opacity-55 transition-opacity ${
+                    p.organ === "heart" ? "bg-[#FF5E7D]" : "bg-[#7C4DFF]"
+                  }`}
+                />
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      p.organ === "heart"
+                        ? "bg-[#FF5E7D]/20 border border-[#FF5E7D]/50"
+                        : "bg-[#7C4DFF]/20 border border-[#7C4DFF]/50"
+                    }`}
+                  >
+                    {p.organ === "heart" ? (
+                      <Heart size={16} color="#FF5E7D" />
+                    ) : (
+                      <Brain size={16} color="#7C4DFF" />
+                    )}
+                  </div>
+                  <span className="text-[10px] tracking-[0.25em] uppercase px-2 py-1 rounded-full text-[#00D4FF] bg-[#00D4FF]/15 border border-[#00D4FF]/40">
+                    Drag & Drop
+                  </span>
+                </div>
+                <h3 className="font-display text-xl mb-2">{p.title}</h3>
+                <p className="text-white/55 text-sm">{p.items.length} positions · pathway</p>
               </motion.button>
             ))}
           </section>
@@ -251,6 +293,11 @@ export default function QuizArena() {
             </section>
           )}
         </>
+      )}
+
+      {/* PATHWAY QUIZ MODE */}
+      {pathwayOpen && (
+        <PathwayQuiz pathwayId={pathwayOpen} onClose={() => setPathwayOpen(null)} />
       )}
 
       {/* QUIZ in progress */}
